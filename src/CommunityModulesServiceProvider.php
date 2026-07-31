@@ -6,7 +6,6 @@ namespace ProjectSend\CommunityModules;
 
 use Illuminate\Support\ServiceProvider;
 use ProjectSend\CommunityModules\Modules\CustomAssets\CustomAssetsServiceProvider;
-use ProjectSend\CommunityModules\Modules\Themes\ThemesServiceProvider;
 
 /**
  * Entry point for every community-exclusive module in this package. Each
@@ -26,7 +25,6 @@ class CommunityModulesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->register(CustomAssetsServiceProvider::class);
-        $this->app->register(ThemesServiceProvider::class);
     }
 
     public function boot(): void
