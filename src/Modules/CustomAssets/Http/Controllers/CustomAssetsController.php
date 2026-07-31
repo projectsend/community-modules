@@ -14,6 +14,10 @@ use Inertia\Response;
 use ProjectSend\CommunityModules\Modules\CustomAssets\AssetLanguage;
 use ProjectSend\CommunityModules\Modules\CustomAssets\AssetPosition;
 use ProjectSend\CommunityModules\Modules\CustomAssets\AssetSurface;
+use ProjectSend\CommunityModules\Modules\CustomAssets\Events\CustomAssetCreated;
+use ProjectSend\CommunityModules\Modules\CustomAssets\Events\CustomAssetDeleted;
+use ProjectSend\CommunityModules\Modules\CustomAssets\Events\CustomAssetToggled;
+use ProjectSend\CommunityModules\Modules\CustomAssets\Events\CustomAssetUpdated;
 use ProjectSend\CommunityModules\Modules\CustomAssets\Models\CustomAsset;
 use ProjectSend\CommunityModules\Modules\CustomAssets\Rendering\CustomAssetRenderer;
 
@@ -70,6 +74,7 @@ class CustomAssetsController extends Controller
         ]);
 
         $this->renderer->forget();
+        event(new CustomAssetCreated($asset, $request->user()));
 
         return redirect()->route('custom-assets.edit', $asset)->with('success', 'Asset created.');
     }
@@ -101,28 +106,32 @@ class CustomAssetsController extends Controller
         $customAsset->update($this->validated($request));
 
         $this->renderer->forget();
+        event(new CustomAssetUpdated($customAsset, $request->user()));
 
         return back()->with('success', 'Asset updated.');
     }
 
-    public function toggle(CustomAsset $customAsset): RedirectResponse
+    public function toggle(Request $request, CustomAsset $customAsset): RedirectResponse
     {
         Gate::authorize('update', $customAsset);
 
         $customAsset->update(['enabled' => ! $customAsset->enabled]);
 
         $this->renderer->forget();
+        event(new CustomAssetToggled($customAsset, $request->user(), $customAsset->enabled));
 
         return back()->with('success', $customAsset->enabled ? 'Asset enabled.' : 'Asset disabled.');
     }
 
-    public function destroy(CustomAsset $customAsset): RedirectResponse
+    public function destroy(Request $request, CustomAsset $customAsset): RedirectResponse
     {
         Gate::authorize('delete', $customAsset);
 
+        $title = $customAsset->title;
         $customAsset->delete();
 
         $this->renderer->forget();
+        event(new CustomAssetDeleted($title, $request->user()));
 
         return redirect()->route('custom-assets.index')->with('success', 'Asset deleted.');
     }
