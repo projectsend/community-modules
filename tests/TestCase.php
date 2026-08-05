@@ -15,9 +15,9 @@ use ProjectSend\CommunityModules\Tests\Support\TestStaffMiddleware;
  * Isolated package tests run against a throwaway Testbench app, not the
  * real host — so host-provided concerns (the `staff` and `capability`
  * route middleware aliases, and the generic
- * create_assets/edit_assets/delete_assets Gate registration the real
- * host's IdentityServiceProvider does for every Permission case) are
- * faked here rather than required.
+ * create_assets/edit_assets/delete_assets/edit_settings Gate
+ * registration the real host's IdentityServiceProvider does for every
+ * Permission case) are faked here rather than required.
  */
 abstract class TestCase extends Orchestra
 {
@@ -40,7 +40,7 @@ abstract class TestCase extends Orchestra
         $app->make('router')->aliasMiddleware('staff', TestStaffMiddleware::class);
         $app->make('router')->aliasMiddleware('capability', TestCapabilityMiddleware::class);
 
-        foreach (['create_assets', 'edit_assets', 'delete_assets'] as $ability) {
+        foreach (['create_assets', 'edit_assets', 'delete_assets', 'edit_settings'] as $ability) {
             Gate::define($ability, fn (FakeUser $user): bool => in_array($ability, $user->abilities, true));
         }
     }

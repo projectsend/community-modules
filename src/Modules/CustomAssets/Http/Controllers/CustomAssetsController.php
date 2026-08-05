@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use ProjectSend\CommunityModules\Modules\CustomAssets\AssetLanguage;
@@ -114,6 +115,9 @@ class CustomAssetsController extends Controller
     public function toggle(Request $request, CustomAsset $customAsset): RedirectResponse
     {
         Gate::authorize('update', $customAsset);
+        // Enabling is what makes an asset live, so it takes the same bar as
+        // writing one — toggle() does not go through validated().
+        $this->guardStaffSurface($customAsset->surfaces);
 
         $customAsset->update(['enabled' => ! $customAsset->enabled]);
 
@@ -151,11 +155,47 @@ class CustomAssetsController extends Controller
             'enabled' => ['sometimes', 'boolean'],
         ]);
 
+        $this->guardStaffSurface($data['surfaces']);
+
         $data['language'] = AssetLanguage::from($data['language']);
         $data['position'] = AssetPosition::from($data['position']);
         $data['enabled'] = $data['enabled'] ?? false;
 
         return $data;
+    }
+
+    /**
+     * An asset on the staff surface executes in an administrator's browser,
+     * so writing one is an administrator-level act however the permission
+     * is labelled: `create_assets` alone would otherwise be a route from
+     * "may add a stylesheet" to "may do anything an admin can do", via
+     * script running in their session.
+     *
+     * The public and portal surfaces stay open to `create_assets` — that is
+     * the ordinary case (analytics, a font, a banner) and it reaches no
+     * privileged session.
+     *
+     * Enforced here rather than in the form so it covers update() and a
+     * hand-crafted PATCH, not just the create screen. Checked against the
+     * *submitted* surfaces, so keeping an existing staff asset while
+     * editing its content needs the permission too — editing the content
+     * of a live staff asset is precisely the dangerous act.
+     *
+     * @param  list<string>  $surfaces
+     */
+    private function guardStaffSurface(array $surfaces): void
+    {
+        if (! in_array(AssetSurface::Staff->value, $surfaces, true)) {
+            return;
+        }
+
+        if (Gate::allows('edit_settings')) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'surfaces' => 'Assets on the staff admin surface run in an administrator\'s browser, so they need the settings permission.',
+        ]);
     }
 
     /**
@@ -170,12 +210,22 @@ class CustomAssetsController extends Controller
     }
 
     /**
-     * @return list<array{value: string, label: string}>
+     * `restricted` is a UX hint only — guardStaffSurface() is the
+     * enforcement. Reported rather than hidden so an edit form can still
+     * render the current value of an asset the viewer may not re-save.
+     *
+     * @return list<array{value: string, label: string, restricted: bool}>
      */
     private function surfaceOptions(): array
     {
+        $mayTargetStaff = Gate::allows('edit_settings');
+
         return array_map(
-            fn (AssetSurface $surface): array => ['value' => $surface->value, 'label' => $surface->label()],
+            fn (AssetSurface $surface): array => [
+                'value' => $surface->value,
+                'label' => $surface->label(),
+                'restricted' => $surface === AssetSurface::Staff && ! $mayTargetStaff,
+            ],
             AssetSurface::cases(),
         );
     }

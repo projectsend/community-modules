@@ -126,3 +126,44 @@ test('every route is gone when the host does not grant the capability', function
     expect(CustomAsset::query()->count())->toBe(1)
         ->and($asset->refresh()->enabled)->toBeTrue();
 });
+
+// An asset on the staff surface executes in an administrator's browser,
+// so writing one is an administrator-level act regardless of what the
+// permission is called. Public and portal stay open to create_assets.
+test('targeting the staff surface additionally requires edit_settings', function () {
+    $this->actingAs(new FakeUser(1, ['create_assets']));
+
+    // Public and portal are unaffected.
+    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['public', 'portal']]))
+        ->assertSessionHasNoErrors();
+    expect(CustomAsset::query()->count())->toBe(1);
+
+    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['staff']]))
+        ->assertSessionHasErrors('surfaces');
+    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['public', 'staff']]))
+        ->assertSessionHasErrors('surfaces');
+    expect(CustomAsset::query()->count())->toBe(1);
+
+    // Nor by editing an existing asset onto that surface — the guard is in
+    // the validator, so it covers update() and a hand-crafted PATCH.
+    $asset = CustomAsset::query()->sole();
+    $this->patch(route('custom-assets.update', $asset), customAssetPayload(['surfaces' => ['staff']]))
+        ->assertSessionHasErrors('surfaces');
+    expect($asset->refresh()->surfaces)->toBe(['public', 'portal']);
+
+    // With edit_settings it goes through.
+    $this->actingAs(new FakeUser(1, ['create_assets', 'edit_settings']));
+    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['staff']]))
+        ->assertSessionHasNoErrors();
+    expect(CustomAsset::query()->count())->toBe(2);
+});
+
+test('a staff-surface asset cannot be toggled on without edit_settings', function () {
+    $this->actingAs(new FakeUser(1, ['create_assets', 'edit_settings']));
+    $asset = makeCustomAsset(1, ['surfaces' => ['staff'], 'enabled' => false]);
+
+    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->patch(route('custom-assets.toggle', $asset))->assertSessionHasErrors('surfaces');
+
+    expect($asset->refresh()->enabled)->toBeFalse();
+});
