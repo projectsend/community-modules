@@ -104,3 +104,25 @@ test('toggle flips enabled and is subject to the same own-vs-any authorization a
     $this->patch(route('custom-assets.toggle', $theirs))->assertRedirect();
     expect($theirs->refresh()->enabled)->toBeTrue();
 });
+
+// This module injects arbitrary HTML/JS into every page, so it is
+// Community-only by design. Being *installed* must not be what decides
+// whether it is live: the shared development checkout requires this
+// package from the Cloud host, where the routes previously registered and
+// answered 200 despite Capability::CustomAssets being false there.
+test('every route is gone when the host does not grant the capability', function () {
+    config(['community-modules-testing.capability_enabled' => false]);
+
+    $this->actingAs(new FakeUser(1, ['create_assets', 'edit_assets', 'delete_assets']));
+    $asset = makeCustomAsset(1, ['title' => 'Tracker', 'language' => 'js', 'content' => 'alert(1)']);
+
+    $this->get('/system/settings/custom-assets')->assertNotFound();
+    $this->get('/system/settings/custom-assets/create')->assertNotFound();
+    $this->get("/system/settings/custom-assets/{$asset->id}")->assertNotFound();
+    $this->post('/system/settings/custom-assets', customAssetPayload())->assertNotFound();
+    $this->patch("/system/settings/custom-assets/{$asset->id}/toggle")->assertNotFound();
+    $this->delete("/system/settings/custom-assets/{$asset->id}")->assertNotFound();
+
+    expect(CustomAsset::query()->count())->toBe(1)
+        ->and($asset->refresh()->enabled)->toBeTrue();
+});

@@ -19,7 +19,10 @@ use ProjectSend\CommunityModules\Modules\CustomAssets\Models\CustomAsset;
  * should be physically absent from that codebase.
  *
  * Host integration contract (see this package's README):
- *   - the `staff` route middleware alias must be registered
+ *   - the `staff` and `capability` route middleware aliases must be
+ *     registered, and the host must declare a `custom_assets.manage`
+ *     capability that is Community-only — this module refuses to serve
+ *     without it rather than trusting its own presence
  *   - Gates for `create_assets`, `edit_assets`, `delete_assets` must be
  *     defined (the Cloud repo's IdentityServiceProvider already does
  *     this generically for every Permission case — a shared Community
@@ -34,7 +37,19 @@ class CustomAssetsServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__.'/../../../database/migrations');
 
-        Route::middleware(['web', 'auth', 'staff'])->group(__DIR__.'/routes.php');
+        // `capability:custom_assets.manage` is load-bearing, not belt-and-
+        // braces. This package being *present* is not supposed to be what
+        // decides whether the feature is live — the host's Capability enum
+        // marks custom_assets.manage as Community-only, and without this
+        // middleware that declaration was never consulted: the routes
+        // registered and answered 200 in a Cloud install, where arbitrary
+        // HTML/JS injection into every page of a hosted, multi-tenant
+        // product is precisely what must not exist. Physical absence from
+        // the Cloud deployment is still the intended primary control (see
+        // the class docblock); this is the gate for when it is present
+        // anyway, which is the case in the shared development checkout.
+        Route::middleware(['web', 'auth', 'staff', 'capability:custom_assets.manage'])
+            ->group(__DIR__.'/routes.php');
 
         Gate::policy(CustomAsset::class, CustomAssetPolicy::class);
     }
