@@ -1,8 +1,8 @@
 {
     "name": "projectsend/community-modules",
-    "description": "Community-exclusive feature modules for ProjectSend — private, never part of the hosted Cloud edition.",
+    "description": "Community-exclusive feature modules for ProjectSend — free software, never part of the hosted Cloud edition.",
     "type": "library",
-    "license": "proprietary",
+    "license": "GPL-2.0-or-later",
     "require": {
         "php": "^8.4",
         "illuminate/support": "^12.0",

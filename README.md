@@ -3,12 +3,13 @@
 Community-exclusive feature modules for ProjectSend — the mirror image of
 the private `projectsend/cloud-modules` package. That package holds premium
 code that can't leak into the open-source community edition; this one holds
-code that must never ship in the hosted Cloud edition (`projectsend.cloud/cloud`).
-Its `composer.json` unconditionally requires `cloud-modules`, so anything
-here is deliberately never wired into that repo, even for local dev — a
-module belongs here when it's judged too risky or irrelevant for a hosted,
-multi-tenant deployment to have present at all, not merely worth capability-
-gating off.
+code that must never ship in the hosted Cloud edition. A module belongs
+here when it's judged too risky or irrelevant for a hosted, multi-tenant
+deployment to have present at all, not merely worth capability-gating off.
+
+Public and free software, unlike its Cloud counterpart: the reason this
+code lives outside the core repository is operational risk on a hosted,
+multi-tenant platform, not secrecy. A self-hoster is welcome to all of it.
 
 Structured exactly like `cloud-modules`: one `<Name>ServiceProvider` per
 module under `src/Modules/`, registered from `CommunityModulesServiceProvider`.
@@ -91,3 +92,16 @@ vendor/bin/phpstan analyse
 
 No host application is required for any of the above — everything runs
 against a throwaway Testbench app.
+
+## Licensing
+
+**GNU General Public License v2, or (at your option) any later version** —
+see [LICENSE](LICENSE). The same terms as ProjectSend itself, because this
+is part of the free edition; being a separate repository is a deployment
+decision, not a licensing one.
+
+Contributions require signing a CLA, as they do in the core repository:
+[CLA-INDIVIDUAL.md](CLA-INDIVIDUAL.md) for yourself, or
+[CLA-ENTITY.md](CLA-ENTITY.md) if you're contributing on behalf of an
+employer. The commercial-licensing option is explained once, for the
+project as a whole, in the core repository's `LICENSING.md`.
