@@ -28,7 +28,7 @@ interface CustomAssetFieldsProps {
     setData: <K extends keyof CustomAssetFormData>(key: K, value: CustomAssetFormData[K]) => void;
     errors: Partial<Record<keyof CustomAssetFormData, string>>;
     languages: Option[];
-    surfaces: (Option & { restricted?: boolean })[];
+    surfaces: Option[];
     positions: Option[];
     /** Fixed once an asset already exists — the language a snippet is
      *  written in isn't something you change after the fact, only its
@@ -101,17 +101,8 @@ export function CustomAssetFields({ data, setData, errors, languages, surfaces, 
                 <Label>{t('Surfaces')}</Label>
                 <div className="space-y-2">
                     {surfaces.map((surface) => (
-                        <label
-                            key={surface.value}
-                            className={`flex items-center gap-2 text-sm ${surface.restricted ? 'text-muted-foreground' : ''}`}
-                            // An asset here runs in an administrator's browser, so it
-                            // is the administrator's alone. The server enforces it
-                            // (guardStaffSurface); this only avoids offering a choice
-                            // that would be refused on save.
-                            title={surface.restricted ? t('Only an administrator can choose this') : undefined}
-                        >
+                        <label key={surface.value} className="flex items-center gap-2 text-sm">
                             <Checkbox
-                                disabled={surface.restricted && !data.surfaces.includes(surface.value)}
                                 checked={data.surfaces.includes(surface.value)}
                                 onCheckedChange={(checked) => toggleSurface(surface.value, checked === true)}
                             />

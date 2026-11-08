@@ -17,6 +17,17 @@ use ProjectSend\CommunityModules\Modules\CustomAssets\Models\CustomAsset;
  * confirmed edit_assets/delete_assets already mean "any asset,"
  * with create_assets alone covering the "own only" case.
  *
+ * Every write also needs the host's `administer` gate (the administrator
+ * role). An asset is script on the application's own origin, and no
+ * surface keeps that away from a privileged session: a public page can
+ * frame the sign-in form and read what is typed into it, or sit in an
+ * open tab until somebody signs in and then act with their cookies; a
+ * portal asset runs as every client, including clients a client-scoped
+ * staff member may not reach. Writing one is an administrator's act
+ * whatever the permission is called. The three permissions still decide
+ * whose assets an administrator-level role may touch, and who may see the
+ * list.
+ *
  * @template TUser of Authenticatable&Authorizable
  */
 class CustomAssetPolicy
@@ -26,7 +37,7 @@ class CustomAssetPolicy
      */
     public function create(Authenticatable&Authorizable $user): bool
     {
-        return $user->can('create_assets');
+        return $user->can('administer') && $user->can('create_assets');
     }
 
     /**
@@ -34,6 +45,10 @@ class CustomAssetPolicy
      */
     public function update(Authenticatable&Authorizable $user, CustomAsset $asset): bool
     {
+        if (! $user->can('administer')) {
+            return false;
+        }
+
         return $asset->isOwnedBy((int) $user->getAuthIdentifier())
             ? $user->can('create_assets')
             : $user->can('edit_assets');
@@ -44,6 +59,10 @@ class CustomAssetPolicy
      */
     public function delete(Authenticatable&Authorizable $user, CustomAsset $asset): bool
     {
+        if (! $user->can('administer')) {
+            return false;
+        }
+
         return $asset->isOwnedBy((int) $user->getAuthIdentifier())
             ? $user->can('create_assets')
             : $user->can('delete_assets');

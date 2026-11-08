@@ -46,8 +46,8 @@ test('index is forbidden without any custom-assets ability', function () {
         ->assertForbidden();
 });
 
-test('a user with only create_assets can create their own asset, and edit/delete it afterwards', function () {
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+test('an administrator with create_assets can create their own asset, and edit/delete it afterwards', function () {
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
 
     $this->post(route('custom-assets.store'), customAssetPayload())->assertRedirect();
 
@@ -62,18 +62,18 @@ test('a user with only create_assets can create their own asset, and edit/delete
     expect(CustomAsset::query()->find($asset->id))->toBeNull();
 });
 
-test('a user with only create_assets cannot edit or delete another users asset', function () {
+test('create_assets alone does not reach another users asset', function () {
     $theirs = makeCustomAsset(ownerId: 2);
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
 
     $this->patch(route('custom-assets.update', $theirs), customAssetPayload())->assertForbidden();
     $this->delete(route('custom-assets.destroy', $theirs))->assertForbidden();
     expect(CustomAsset::query()->find($theirs->id))->not->toBeNull();
 });
 
-test('a user with edit_assets and delete_assets can edit and delete any asset', function () {
+test('an administrator with edit_assets and delete_assets can edit and delete any asset', function () {
     $theirs = makeCustomAsset(ownerId: 2);
-    $this->actingAs(new FakeUser(1, ['edit_assets', 'delete_assets']));
+    $this->actingAs(new FakeUser(1, ['edit_assets', 'delete_assets', 'administer']));
 
     $this->patch(route('custom-assets.update', $theirs), customAssetPayload(['title' => 'Retitled']))
         ->assertRedirect();
@@ -84,7 +84,7 @@ test('a user with edit_assets and delete_assets can edit and delete any asset', 
 });
 
 test('creating an asset requires create_assets', function () {
-    $this->actingAs(new FakeUser(1, ['edit_assets', 'delete_assets']));
+    $this->actingAs(new FakeUser(1, ['edit_assets', 'delete_assets', 'administer']));
 
     $this->withHeaders(['X-Inertia' => 'true'])
         ->get(route('custom-assets.create'))
@@ -97,10 +97,10 @@ test('creating an asset requires create_assets', function () {
 test('toggle flips enabled and is subject to the same own-vs-any authorization as update', function () {
     $theirs = makeCustomAsset(ownerId: 2, overrides: ['enabled' => false]);
 
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
     $this->patch(route('custom-assets.toggle', $theirs))->assertForbidden();
 
-    $this->actingAs(new FakeUser(1, ['edit_assets']));
+    $this->actingAs(new FakeUser(1, ['edit_assets', 'administer']));
     $this->patch(route('custom-assets.toggle', $theirs))->assertRedirect();
     expect($theirs->refresh()->enabled)->toBeTrue();
 });
@@ -127,49 +127,50 @@ test('every route is gone when the host does not grant the capability', function
         ->and($asset->refresh()->enabled)->toBeTrue();
 });
 
-// An asset on the staff surface executes in an administrator's browser,
-// so writing one is an administrator-level act regardless of what the
-// permission is called. Public and portal stay open to create_assets.
-test('targeting the staff surface additionally requires the administrator', function () {
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+// An asset is script on the application's own origin. A public one can
+// frame the sign-in form or wait in an open tab for somebody to sign in;
+// a portal one runs as every client. No surface keeps it away from a
+// privileged session, so every write is the administrator's.
+test('writing an asset on any surface needs the administrator', function (array $surfaces) {
+    foreach ([['create_assets'], ['create_assets', 'edit_settings']] as $abilities) {
+        $this->actingAs(new FakeUser(1, $abilities));
 
-    // Public and portal are unaffected.
-    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['public', 'portal']]))
-        ->assertSessionHasNoErrors();
-    expect(CustomAsset::query()->count())->toBe(1);
+        $this->withHeaders(['X-Inertia' => 'true'])->get(route('custom-assets.create'))->assertForbidden();
+        $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => $surfaces]))->assertForbidden();
+    }
 
-    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['staff']]))
-        ->assertSessionHasErrors('surfaces');
-    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['public', 'staff']]))
-        ->assertSessionHasErrors('surfaces');
-    expect(CustomAsset::query()->count())->toBe(1);
+    expect(CustomAsset::query()->count())->toBe(0);
 
-    // Nor by editing an existing asset onto that surface — the guard is in
-    // the validator, so it covers update() and a hand-crafted PATCH.
-    $asset = CustomAsset::query()->sole();
-    $this->patch(route('custom-assets.update', $asset), customAssetPayload(['surfaces' => ['staff']]))
-        ->assertSessionHasErrors('surfaces');
-    expect($asset->refresh()->surfaces)->toBe(['public', 'portal']);
-
-    // The settings permission is not enough: a custom role holding it is
-    // still not the administrator.
-    $this->actingAs(new FakeUser(1, ['create_assets', 'edit_settings']));
-    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['staff']]))
-        ->assertSessionHasErrors('surfaces');
-
-    // With administer it goes through.
     $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
-    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => ['staff']]))
+    $this->post(route('custom-assets.store'), customAssetPayload(['surfaces' => $surfaces]))
         ->assertSessionHasNoErrors();
-    expect(CustomAsset::query()->count())->toBe(2);
+    expect(CustomAsset::query()->count())->toBe(1);
+})->with([
+    'public' => [['public']],
+    'portal' => [['portal']],
+    'staff' => [['staff']],
+]);
+
+test('an asset the holder wrote before cannot be edited, toggled or deleted without the administrator', function () {
+    $mine = makeCustomAsset(1, ['surfaces' => ['public'], 'enabled' => false]);
+    $this->actingAs(new FakeUser(1, ['create_assets', 'edit_assets', 'delete_assets']));
+
+    $this->patch(route('custom-assets.update', $mine), customAssetPayload(['content' => 'alert(1)', 'language' => 'js']))
+        ->assertForbidden();
+    $this->patch(route('custom-assets.toggle', $mine))->assertForbidden();
+    $this->delete(route('custom-assets.destroy', $mine))->assertForbidden();
+
+    expect($mine->refresh()->enabled)->toBeFalse()
+        ->and($mine->content)->toBe('body { color: red; }');
 });
 
-test('a staff-surface asset cannot be toggled on without administer', function () {
-    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
-    $asset = makeCustomAsset(1, ['surfaces' => ['staff'], 'enabled' => false]);
+test('the list is still readable without the administrator, with no way to write', function () {
+    makeCustomAsset(2);
+    $this->actingAs(new FakeUser(1, ['create_assets', 'edit_assets', 'delete_assets']));
 
-    $this->actingAs(new FakeUser(1, ['create_assets']));
-    $this->patch(route('custom-assets.toggle', $asset))->assertSessionHasErrors('surfaces');
-
-    expect($asset->refresh()->enabled)->toBeFalse();
+    $this->withHeaders(['X-Inertia' => 'true'])->get(route('custom-assets.index'))
+        ->assertOk()
+        ->assertJsonPath('props.can_create', false)
+        ->assertJsonPath('props.assets.0.can_edit', false)
+        ->assertJsonPath('props.assets.0.can_delete', false);
 });

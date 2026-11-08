@@ -21,9 +21,10 @@ interface AssetRow {
 
 interface CustomAssetsIndexProps {
     assets: AssetRow[];
+    can_create: boolean;
 }
 
-export default function CustomAssetsIndex({ assets }: CustomAssetsIndexProps) {
+export default function CustomAssetsIndex({ assets, can_create }: CustomAssetsIndexProps) {
     const { t } = useTranslation();
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -49,9 +50,11 @@ export default function CustomAssetsIndex({ assets }: CustomAssetsIndexProps) {
                         title={t('Custom assets')}
                         description={t('Inject custom HTML, CSS, or JavaScript into the public, portal, or staff pages.')}
                     />
-                    <Button asChild>
-                        <Link href={route('custom-assets.create')}>{t('New asset')}</Link>
-                    </Button>
+                    {can_create && (
+                        <Button asChild>
+                            <Link href={route('custom-assets.create')}>{t('New asset')}</Link>
+                        </Button>
+                    )}
                 </div>
 
                 <div className="mt-6 overflow-x-auto rounded-lg border">

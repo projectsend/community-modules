@@ -12,7 +12,7 @@ use ProjectSend\CommunityModules\Tests\Support\FakeUser;
 
 test('creating an asset dispatches CustomAssetCreated', function () {
     Event::fake();
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
 
     $this->post(route('custom-assets.store'), customAssetPayload());
 
@@ -22,7 +22,7 @@ test('creating an asset dispatches CustomAssetCreated', function () {
 test('updating an asset dispatches CustomAssetUpdated, not CustomAssetToggled, even when the enabled checkbox changes', function () {
     $asset = makeCustomAsset(ownerId: 1, overrides: ['enabled' => false]);
     Event::fake();
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
 
     $this->patch(route('custom-assets.update', $asset), customAssetPayload(['enabled' => true]));
 
@@ -33,7 +33,7 @@ test('updating an asset dispatches CustomAssetUpdated, not CustomAssetToggled, e
 test('toggle dispatches CustomAssetToggled with the new enabled state', function () {
     $asset = makeCustomAsset(ownerId: 1, overrides: ['enabled' => false]);
     Event::fake();
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
 
     $this->patch(route('custom-assets.toggle', $asset));
 
@@ -43,7 +43,7 @@ test('toggle dispatches CustomAssetToggled with the new enabled state', function
 test('deleting an asset dispatches CustomAssetDeleted carrying the title, after the row is gone', function () {
     $asset = makeCustomAsset(ownerId: 1, overrides: ['title' => 'Doomed snippet']);
     Event::fake();
-    $this->actingAs(new FakeUser(1, ['create_assets']));
+    $this->actingAs(new FakeUser(1, ['create_assets', 'administer']));
 
     $this->delete(route('custom-assets.destroy', $asset));
 

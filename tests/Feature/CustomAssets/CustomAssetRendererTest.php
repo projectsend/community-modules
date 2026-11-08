@@ -70,7 +70,7 @@ test('forget invalidates the cache so a mutation via the controller is reflected
     $renderer = app(CustomAssetRenderer::class);
     expect($renderer->render(AssetPosition::BodyTop, AssetSurface::Public))->toContain('old');
 
-    $this->actingAs(new FakeUser(1, ['edit_assets']));
+    $this->actingAs(new FakeUser(1, ['edit_assets', 'administer']));
     $this->patch(route('custom-assets.update', $asset), [
         'title' => 'Original',
         'language' => 'html',
