@@ -105,10 +105,10 @@ export function CustomAssetFields({ data, setData, errors, languages, surfaces, 
                             key={surface.value}
                             className={`flex items-center gap-2 text-sm ${surface.restricted ? 'text-muted-foreground' : ''}`}
                             // An asset here runs in an administrator's browser, so it
-                            // needs the settings permission. The server enforces it
+                            // is the administrator's alone. The server enforces it
                             // (guardStaffSurface); this only avoids offering a choice
                             // that would be refused on save.
-                            title={surface.restricted ? t('Requires the settings permission') : undefined}
+                            title={surface.restricted ? t('Only an administrator can choose this') : undefined}
                         >
                             <Checkbox
                                 disabled={surface.restricted && !data.surfaces.includes(surface.value)}

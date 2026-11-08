@@ -167,9 +167,12 @@ class CustomAssetsController extends Controller
     /**
      * An asset on the staff surface executes in an administrator's browser,
      * so writing one is an administrator-level act however the permission
-     * is labelled: `create_assets` alone would otherwise be a route from
-     * "may add a stylesheet" to "may do anything an admin can do", via
-     * script running in their session.
+     * is labelled, and it takes the host's `administer` gate (the
+     * administrator role), not `edit_settings`: a custom role holding the
+     * settings permission is still not the administrator, and script in
+     * their session would make it one. `create_assets` alone would
+     * otherwise be a route from "may add a stylesheet" to "may do anything
+     * an admin can do".
      *
      * The public and portal surfaces stay open to `create_assets` — that is
      * the ordinary case (analytics, a font, a banner) and it reaches no
@@ -189,12 +192,12 @@ class CustomAssetsController extends Controller
             return;
         }
 
-        if (Gate::allows('edit_settings')) {
+        if (Gate::allows('administer')) {
             return;
         }
 
         throw ValidationException::withMessages([
-            'surfaces' => 'Assets on the staff admin surface run in an administrator\'s browser, so they need the settings permission.',
+            'surfaces' => 'Assets on the staff admin surface run in an administrator\'s browser, so only an administrator may put one there.',
         ]);
     }
 
@@ -218,7 +221,7 @@ class CustomAssetsController extends Controller
      */
     private function surfaceOptions(): array
     {
-        $mayTargetStaff = Gate::allows('edit_settings');
+        $mayTargetStaff = Gate::allows('administer');
 
         return array_map(
             fn (AssetSurface $surface): array => [
